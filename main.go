@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
 
@@ -17,15 +18,22 @@ const TOKEN_FILENAME = "token.json"
 
 func main() {
 	ctx := context.Background()
-	client, err := getClient(ctx)
+
+	service, err := getService(ctx)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("got client!!!")
-	_ = client
+
+	call := service.Playlists.List([]string{"snippet"})
+	call.Mine(true)
+	resp, err := call.Do()
+	if err != nil {
+		panic(err)
+	}
+	_ = resp
 }
 
-func getClient(ctx context.Context) (*http.Client, error) {
+func getService(ctx context.Context) (*youtube.Service, error) {
 	// Read client secret from json
 	b, err := os.ReadFile("client_secret.json")
 	if err != nil {
@@ -33,7 +41,7 @@ func getClient(ctx context.Context) (*http.Client, error) {
 	}
 
 	// Get OAuth2 config
-	conf, err := google.ConfigFromJSON(b, youtube.YoutubeReadonlyScope)
+	conf, err := google.ConfigFromJSON(b, youtube.YoutubeScope)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +52,7 @@ func getClient(ctx context.Context) (*http.Client, error) {
 		return nil, err
 	}
 
-	return conf.Client(ctx, tok), nil
+	return youtube.NewService(ctx, option.WithTokenSource(conf.TokenSource(ctx, tok)))
 }
 
 func getToken(conf *oauth2.Config, ctx context.Context) (*oauth2.Token, error) {
