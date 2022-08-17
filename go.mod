@@ -2,7 +2,18 @@ module github.com/barrettj12/sort-yt-playlist
 
 go 1.18
 
-require google.golang.org/api v0.91.0
+require (
+	github.com/kr/pretty v0.1.0
+	google.golang.org/api v0.91.0
+)
+
+require (
+	github.com/fatih/color v1.13.0 // indirect
+	github.com/kr/text v0.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
+)
 
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
@@ -11,6 +22,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
+	github.com/gosuri/uitable v0.0.4
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2

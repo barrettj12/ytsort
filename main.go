@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
+	"github.com/gosuri/uitable"
+	"github.com/kr/pretty"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -20,17 +24,73 @@ func main() {
 	ctx := context.Background()
 
 	service, err := getService(ctx)
-	if err != nil {
-		panic(err)
+	panicIfNotNil(err)
+
+	listPlaylistsCall := service.Playlists.List([]string{"snippet", "contentDetails"})
+	listPlaylistsCall.Mine(true)
+	playlists, err := listPlaylistsCall.Do()
+	panicIfNotNil(err)
+
+	playlistID, err := promptForPlaylist(playlists)
+	panicIfNotNil(err)
+
+	listItemsCall := service.PlaylistItems.List([]string{"contentDetails", "id", "snippet", "status"})
+	listItemsCall.PlaylistId(playlistID)
+	listItemsCall.MaxResults(50)
+	items, err := listItemsCall.Do()
+	panicIfNotNil(err)
+
+	dump(items, "items.txt")
+
+	// If `items.NextPageToken != ""`: then we need to get next page
+
+	fmt.Println("This playlist contains the following items:")
+	for _, it := range items.Items {
+		fmt.Printf("  - %s\n", it.Snippet.Title)
+	}
+}
+
+func panicIfNotNil(v any) {
+	if v != nil {
+		panic(v)
+	}
+}
+
+func dump(v any, filename string) {
+	os.WriteFile(filename, []byte(pretty.Sprint(v)), os.ModePerm)
+}
+
+// returns playlist ID
+func promptForPlaylist(r *youtube.PlaylistListResponse) (string, error) {
+	fmt.Println("Which of the following playlists would you like to sort?")
+
+	table := uitable.New()
+	table.MaxColWidth = 35
+	table.AddRow("#", "Name", "Len", "ID")
+
+	for i, pl := range r.Items {
+		table.AddRow(
+			i,
+			pl.Snippet.Title,
+			pl.ContentDetails.ItemCount,
+			pl.Id,
+		)
+	}
+	fmt.Println(table)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Enter number (#): ")
+	scanner.Scan()
+	if err := scanner.Err(); err != nil {
+		return "", err
 	}
 
-	call := service.Playlists.List([]string{"snippet"})
-	call.Mine(true)
-	resp, err := call.Do()
+	n, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	_ = resp
+
+	return r.Items[n].Id, nil
 }
 
 func getService(ctx context.Context) (*youtube.Service, error) {
