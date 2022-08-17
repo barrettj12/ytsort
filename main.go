@@ -23,74 +23,19 @@ const TOKEN_FILENAME = "token.json"
 func main() {
 	ctx := context.Background()
 
-	service, err := getService(ctx)
+	s, err := getService(ctx)
 	panicIfNotNil(err)
 
-	listPlaylistsCall := service.Playlists.List([]string{"snippet", "contentDetails"})
-	listPlaylistsCall.Mine(true)
-	playlists, err := listPlaylistsCall.Do()
+	playlists, err := getPlaylists(s)
 	panicIfNotNil(err)
 
 	playlistID, err := promptForPlaylist(playlists)
 	panicIfNotNil(err)
 
-	listItemsCall := service.PlaylistItems.List([]string{"contentDetails", "id", "snippet", "status"})
-	listItemsCall.PlaylistId(playlistID)
-	listItemsCall.MaxResults(50)
-	items, err := listItemsCall.Do()
+	items, err := getPlaylistItems(s, playlistID)
 	panicIfNotNil(err)
 
-	dump(items, "items.txt")
-
-	// If `items.NextPageToken != ""`: then we need to get next page
-
-	fmt.Println("This playlist contains the following items:")
-	for _, it := range items.Items {
-		fmt.Printf("  - %s\n", it.Snippet.Title)
-	}
-}
-
-func panicIfNotNil(v any) {
-	if v != nil {
-		panic(v)
-	}
-}
-
-func dump(v any, filename string) {
-	os.WriteFile(filename, []byte(pretty.Sprint(v)), os.ModePerm)
-}
-
-// returns playlist ID
-func promptForPlaylist(r *youtube.PlaylistListResponse) (string, error) {
-	fmt.Println("Which of the following playlists would you like to sort?")
-
-	table := uitable.New()
-	table.MaxColWidth = 35
-	table.AddRow("#", "Name", "Len", "ID")
-
-	for i, pl := range r.Items {
-		table.AddRow(
-			i,
-			pl.Snippet.Title,
-			pl.ContentDetails.ItemCount,
-			pl.Id,
-		)
-	}
-	fmt.Println(table)
-
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("Enter number (#): ")
-	scanner.Scan()
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	n, err := strconv.Atoi(scanner.Text())
-	if err != nil {
-		return "", err
-	}
-
-	return r.Items[n].Id, nil
+	sort(items)
 }
 
 func getService(ctx context.Context) (*youtube.Service, error) {
@@ -169,6 +114,71 @@ func getNewToken(conf *oauth2.Config, ctx context.Context) (*oauth2.Token, error
 	}
 
 	return tok, nil
+}
+
+func getPlaylists(s *youtube.Service) (*youtube.PlaylistListResponse, error) {
+	listPlaylistsCall := s.Playlists.List([]string{"snippet", "contentDetails"})
+	listPlaylistsCall.Mine(true)
+	return listPlaylistsCall.Do()
+}
+
+// returns playlist ID
+func promptForPlaylist(r *youtube.PlaylistListResponse) (string, error) {
+	fmt.Println("Which of the following playlists would you like to sort?")
+
+	table := uitable.New()
+	table.MaxColWidth = 35
+	table.AddRow("#", "Name", "Len", "ID")
+
+	for i, pl := range r.Items {
+		table.AddRow(
+			i,
+			pl.Snippet.Title,
+			pl.ContentDetails.ItemCount,
+			pl.Id,
+		)
+	}
+	fmt.Println(table)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("Enter number (#): ")
+	scanner.Scan()
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	n, err := strconv.Atoi(scanner.Text())
+	if err != nil {
+		return "", err
+	}
+
+	return r.Items[n].Id, nil
+}
+
+func getPlaylistItems(s *youtube.Service, playlistID string) ([]*youtube.PlaylistItem, error) {
+	listItemsCall := s.PlaylistItems.List([]string{"contentDetails", "id", "snippet", "status"})
+	listItemsCall.PlaylistId(playlistID)
+	listItemsCall.MaxResults(50)
+	items, err := listItemsCall.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	dump(items, "items.txt")
+	// TODO: if `items.NextPageToken != ""`: then we need to get next page
+	return items.Items, nil
+}
+
+// Helper functions
+
+func panicIfNotNil(v any) {
+	if v != nil {
+		panic(v)
+	}
+}
+
+func dump(v any, filename string) {
+	os.WriteFile(filename, []byte(pretty.Sprint(v)), os.ModePerm)
 }
 
 func couldnt(action string, err error) {
