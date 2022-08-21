@@ -1,6 +1,8 @@
 package main
 
-import "google.golang.org/api/youtube/v3"
+import (
+	"google.golang.org/api/youtube/v3"
+)
 
 func sort(items []*youtube.PlaylistItem) {
 	// Find longest monotonic subsequence
@@ -15,57 +17,55 @@ func longestMonotonicSubseq(items []*youtube.PlaylistItem) []bool {
 		last *string
 	}
 
-	// Keep a list of good candidates so far
-	// First possible candidate is empty subseq
-	candidates := []subseq{{[]bool{}, 0, nil}}
+	n := len(items)
 
-	for _, it := range items {
-		newCandidates := []subseq{}
-		// Keep track of candidates to be discarded
-		toDiscard := make([]bool, len(candidates))
+	// For each i = 0, ..., n, we keep track of the longest monotonic subsequence
+	lms := make([]*subseq, n+1)
+	lms[0] = &subseq{
+		seq:  make([]bool, n),
+		len:  0,
+		last: nil,
+	}
 
-		for _, oldSeq := range candidates {
-			if oldSeq.last == nil || *oldSeq.last < it.Snippet.Title {
-				// seq with next item added is a new candidate
-				newSeq := subseq{
-					seq:  append(oldSeq.seq, true),
-					len:  oldSeq.len + 1,
-					last: &it.Snippet.Title,
-				}
-				newCandidates = append(newCandidates, newSeq)
+	// Also keep track of sequences which have been "dominated"
+	// S dominates T if len(S) >= len(T) and last(S) <= last(T)
+	dominated := make([]bool, n+1)
 
-				// Check if this sequence "beats" any existing candidate
-				for i, cd := range candidates {
-					if cd.last != nil && cd.len <= newSeq.len && *cd.last >= *newSeq.last {
-						// We could replace `cd` with `newSeq` inside any sequence to get
-						// a better candidate. Therefore `cd` is not a candidate anymore.
-						toDiscard[i] = true
-					}
-				}
+	for i, it := range items {
+		// Find new candidate lms[i+1]
+		// which is the longest lms[j], j < i such that `it` can be added to the end
+		j := 0
+		for k := 1; k <= i; k++ {
+			if !dominated[k] && *lms[k].last < it.Snippet.Title && lms[k].len > lms[j].len {
+				j = k
 			}
 		}
 
-		// Carry over existing candidates (which aren't marked to be discarded)
-		for i, oldSeq := range candidates {
-			if !toDiscard[i] {
-				newCandidates = append(candidates, subseq{
-					seq:  append(oldSeq.seq, false),
-					len:  oldSeq.len,
-					last: oldSeq.last,
-				})
+		// Add new candidate to lms array
+		newSeq := make([]bool, n)
+		copy(newSeq, lms[j].seq)
+		newSeq[i] = true
+		lms[i+1] = &subseq{
+			seq:  newSeq,
+			len:  lms[j].len + 1,
+			last: &it.Snippet.Title,
+		}
+
+		// Check which sequences are dominated by the new candidate
+		// and mark these as such.
+		for k := 1; k <= i; k++ {
+			if !dominated[k] && *lms[k].last >= *lms[i+1].last && lms[k].len <= lms[i+1].len {
+				dominated[k] = true
 			}
 		}
-
-		candidates = newCandidates
 	}
 
-	// Find best candidate at end
-	best := candidates[0]
-	for _, cd := range candidates[1:] {
-		if cd.len > best.len {
-			best = cd
+	// Go through and pick the best sequence
+	best := lms[0]
+	for _, ss := range lms[1:] {
+		if ss.len > best.len {
+			best = ss
 		}
 	}
-
 	return best.seq
 }
