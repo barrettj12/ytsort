@@ -1,4 +1,4 @@
-module github.com/barrettj12/sort-yt-playlist
+module github.com/barrettj12/ytsort
 
 go 1.18
 
