@@ -7,7 +7,19 @@ import (
 func sort(items []*youtube.PlaylistItem) {
 	// Find longest monotonic subsequence
 	ss := longestMonotonicSubseq(items)
-	_ = ss
+
+	// For everything not in the sequence: need to move it
+	i := 0
+	for i < len(items) {
+		if !ss[i] {
+			// Iterate through and find where this should go
+			j := 0
+			for {
+				if items[j]
+			}
+
+			update(i, j, &ss, &items)
+		}
 }
 
 func longestMonotonicSubseq(items []*youtube.PlaylistItem) []bool {

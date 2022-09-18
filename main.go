@@ -20,6 +20,8 @@ import (
 // Global constants
 const TOKEN_FILENAME = "token.json"
 
+var PLAYLIST_ITEMS_PARTS = []string{"snippet"}
+
 func main() {
 	ctx := context.Background()
 
@@ -32,10 +34,11 @@ func main() {
 	playlistID, err := promptForPlaylist(playlists)
 	panicIfNotNil(err)
 
-	items, err := getPlaylistItems(s, playlistID)
-	panicIfNotNil(err)
+	// items, err := getPlaylistItems(s, playlistID)
+	// panicIfNotNil(err)
 
-	sort(items)
+	err = sort(s, playlistID)
+	panicIfNotNil(err)
 }
 
 func getService(ctx context.Context) (*youtube.Service, error) {
@@ -156,17 +159,76 @@ func promptForPlaylist(r *youtube.PlaylistListResponse) (string, error) {
 }
 
 func getPlaylistItems(s *youtube.Service, playlistID string) ([]*youtube.PlaylistItem, error) {
-	listItemsCall := s.PlaylistItems.List([]string{"contentDetails", "id", "snippet", "status"})
-	listItemsCall.PlaylistId(playlistID)
-	listItemsCall.MaxResults(50)
-	items, err := listItemsCall.Do()
-	if err != nil {
-		return nil, err
+	items := []*youtube.PlaylistItem{}
+	nextPageToken := ""
+
+	for {
+		// Call API
+		listItemsCall := s.PlaylistItems.List(PLAYLIST_ITEMS_PARTS)
+		listItemsCall.PlaylistId(playlistID)
+		listItemsCall.MaxResults(50)
+		listItemsCall.PageToken(nextPageToken)
+
+		ret, err := listItemsCall.Do()
+		if err != nil {
+			return nil, err
+		}
+
+		// Append items to array
+		items = append(items, ret.Items...)
+
+		// Check if there's a next page
+		if ret.NextPageToken == "" {
+			break
+		} else {
+			nextPageToken = ret.NextPageToken
+		}
 	}
 
-	dump(items, "items.txt")
-	// TODO: if `items.NextPageToken != ""`: then we need to get next page
-	return items.Items, nil
+	return items, nil
+}
+
+func updatePlaylistItems(s *youtube.Service, item *youtube.PlaylistItem) (*youtube.PlaylistItem, error) {
+	updateItemsCall := s.PlaylistItems.Update(PLAYLIST_ITEMS_PARTS, item)
+	return updateItemsCall.Do()
+}
+
+// Sorting function
+
+// Use insertion sort for simplicity
+func sort(s *youtube.Service, playlistID string) error {
+	next := 1 // next index to sort
+
+	for {
+		// TODO: don't need to continually get, just update a local copy
+		items, err := getPlaylistItems(s, playlistID)
+		if err != nil {
+			return err
+		}
+
+		if next >= len(items) {
+			break
+		}
+
+		// Find where items[next] should be inserted
+		for i := 0; i < next; i++ {
+			if items[i].Snippet.Title > items[next].Snippet.Title {
+				// Update snippet.position
+				items[next].Snippet.Position = int64(i)
+				fmt.Printf("moving %q from pos %d to %d\n", items[next].Snippet.Title, next, i)
+				_, err = updatePlaylistItems(s, items[next])
+				if err != nil {
+					return err
+				}
+				break
+			}
+		}
+		// If we escaped the loop without updating anything, then items[next] is
+		// already in the right place. So nothing to do here except go on to
+		// the next iteration.
+		next++
+	}
+	return nil
 }
 
 // Helper functions
