@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,22 +24,40 @@ const TOKEN_FILENAME = "token.json"
 var PLAYLIST_ITEMS_PARTS = []string{"snippet"}
 
 func main() {
-	ctx := context.Background()
+	err := main2()
+	if err != nil {
+		// Force new token and retry
+		os.Remove(TOKEN_FILENAME)
+		err = main2()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
 
+func main2() error {
+	ctx := context.Background()
 	s, err := getService(ctx)
-	panicIfNotNil(err)
+	if err != nil {
+		return err
+	}
 
 	playlists, err := getPlaylists(s)
-	panicIfNotNil(err)
+	if err != nil {
+		return err
+	}
 
 	playlistID, err := promptForPlaylist(playlists)
-	panicIfNotNil(err)
+	if err != nil {
+		return err
+	}
 
 	// items, err := getPlaylistItems(s, playlistID)
-	// panicIfNotNil(err)
+	// 	if err != nil {
+	// 	return err
+	// }
 
-	err = sort(s, playlistID)
-	panicIfNotNil(err)
+	return sort(s, playlistID)
 }
 
 func getService(ctx context.Context) (*youtube.Service, error) {
@@ -232,12 +251,6 @@ func sort(s *youtube.Service, playlistID string) error {
 }
 
 // Helper functions
-
-func panicIfNotNil(v any) {
-	if v != nil {
-		panic(v)
-	}
-}
 
 func dump(v any, filename string) {
 	os.WriteFile(filename, []byte(pretty.Sprint(v)), os.ModePerm)
