@@ -127,7 +127,7 @@ func getNewToken(conf *oauth2.Config, ctx context.Context) (*oauth2.Token, error
 	// Cache token for later
 	b, err := json.Marshal(tok)
 	if err == nil {
-		err = os.WriteFile(TOKEN_FILENAME, b, os.ModePerm)
+		err = os.WriteFile(TOKEN_FILENAME, b, 0666)
 		if err != nil {
 			couldnt("write token to file", err)
 		}
