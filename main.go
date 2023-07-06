@@ -245,6 +245,7 @@ func sort(s *youtube.Service, playlistID string) error {
 		// If we escaped the loop without updating anything, then items[next] is
 		// already in the right place. So nothing to do here except go on to
 		// the next iteration.
+		fmt.Printf("%q already in correct position %d\n", items[next].Snippet.Title, next)
 		next++
 	}
 	return nil
